@@ -77,10 +77,12 @@ public class PlayerController : MonoBehaviour
     #region PlayerMotor Helpers
     void UpdateMotorMoveMode(Vector2 InputDir)
     {
+        if (PlayerMotor == null) { return; }
+
         // Currnetly running ...
         bool IsRunning = (PlayerMotor.MoveMode == HumanoidMotor.EMoveMode.Run);
-        // Not running, but pressed run button ...
-        if (!IsRunning && Input.GetButtonDown("L3_1")) { IsRunning = true; }
+        // Not running, but pressed run button while grounded ...
+        if (!IsRunning && PlayerMotor.IsGrounded() && Input.GetButtonDown("L3_1")) { IsRunning = true; }
         // Not moving ...
         if (InputDir == Vector2.zero) { IsRunning = false; }
 
