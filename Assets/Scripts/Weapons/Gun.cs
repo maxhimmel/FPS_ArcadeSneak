@@ -24,7 +24,7 @@ public class Gun : MonoBehaviour
     public Vector3 ShootForward         { get { return (MuzzleJoint != null) ? MuzzleJoint.forward : this.transform.forward; } }
     public Vector3 ShootOrigin          { get { return (MuzzleJoint != null) ? MuzzleJoint.position : this.transform.position; } }
     public Quaternion ShootRotation     { get { return (MuzzleJoint != null) ? MuzzleJoint.rotation : this.transform.rotation; } }
-    public float OverheatingMeterRatio  { get { return OverheatingCounter / HeatingCapacity; } }
+    public float OverheatingMeterRatio  { get { return Mathf.Clamp01(OverheatingCounter / HeatingCapacity); } }
     #endregion
 
     #region Private
@@ -38,15 +38,7 @@ public class Gun : MonoBehaviour
     #region Mono
     private void Update()
     {
-        Renderer MyRenderer = GetComponentInChildren<Renderer>();
-        if (MyRenderer != null)
-        {
-            if (MyRenderer.material != null)
-            {
-                Color OverheatingColor = Color.Lerp(Color.white, Color.red, OverheatingMeterRatio);
-                MyRenderer.material.color = OverheatingColor;
-            }
-        }
+        ApplyGunOverheatingEffect();
     }
     #endregion
 
@@ -175,6 +167,18 @@ public class Gun : MonoBehaviour
         if (MuzzleFlashParticles == null) { return; }
 
         MuzzleFlashParticles.Play();
+    }
+
+    void ApplyGunOverheatingEffect()
+    {
+        Renderer MyRenderer = GetComponentInChildren<Renderer>();
+        if (MyRenderer == null) { return; }
+        
+        if (MyRenderer.material != null)
+        {
+            Color OverheatingColor = Color.Lerp(Color.white, Color.red, OverheatingMeterRatio);
+            MyRenderer.material.color = OverheatingColor;
+        }
     }
     #endregion
 }
