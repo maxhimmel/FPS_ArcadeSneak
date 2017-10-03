@@ -75,12 +75,27 @@ public class PlayerController : MonoBehaviour
     #endregion
 
     #region PlayerMotor Helpers
+    void UpdateMotorMoveMode(Vector2 InputDir)
+    {
+        // Currnetly running ...
+        bool IsRunning = (PlayerMotor.MoveMode == HumanoidMotor.EMoveMode.Run);
+        // Not running, but pressed run button ...
+        if (!IsRunning && Input.GetButtonDown("L3_1")) { IsRunning = true; }
+        // Not moving ...
+        if (InputDir == Vector2.zero) { IsRunning = false; }
+
+        HumanoidMotor.EMoveMode NewMoveMode = (IsRunning) ? HumanoidMotor.EMoveMode.Run : HumanoidMotor.EMoveMode.Walk;
+        PlayerMotor.SetMoveMode(NewMoveMode);
+    }
+
     void UpdatePlayerMotor()
     {
         if (PlayerMotor == null) { return; }
 
         Vector2 InputDir = new Vector2(Input.GetAxis("L_XAxis_1"), Input.GetAxis("L_YAxis_1"));
         bool Jump = Input.GetButtonDown("A_1");
+
+        UpdateMotorMoveMode(InputDir);
 
         if (Jump) { PlayerMotor.Jump(); }
         PlayerMotor.SetHorizontalDirection(InputDir);
