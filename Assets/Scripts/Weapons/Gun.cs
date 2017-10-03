@@ -6,14 +6,15 @@ public class Gun : MonoBehaviour
 {
     #region Serializable
     [Header("Attachments")]
+    [SerializeField] private Transform HeadJoint;
     [SerializeField] private Transform ElbowJoint;
     [SerializeField] private Transform MuzzleJoint;
     [Header("Bullet Data")]
     [SerializeField] private Bullet BulletPrefab;
     [SerializeField] private float BulletLifetimeSeconds = 5;
+    [SerializeField] private float BulletForce = 20;
     [Header("Specs")]
     [SerializeField] private float Range = 50;
-    [SerializeField] private float BulletForce = 20;
     [SerializeField] private float RateOfFirePerSec = 0.175f;
     [SerializeField] private float RecoilForce = 0.15f;
     [SerializeField] private float RecoilRecoveryRate = 1;
@@ -21,6 +22,7 @@ public class Gun : MonoBehaviour
     [SerializeField] private float HeatPerShot = 1;
     [SerializeField] private float HeatingCooldownRatePerSec = 0.15f;
     [Header("Fun")]
+    [SerializeField] private bool UseRecoil = false;
     [SerializeField] private ParticleSystem MuzzleFlashParticles;
     [SerializeField] private Vector2 OverHeatingOutlineBounds = new Vector2(0, 0.05f);
     #endregion
@@ -30,6 +32,8 @@ public class Gun : MonoBehaviour
     public Vector3 ShootOrigin          { get { return (MuzzleJoint != null) ? MuzzleJoint.position : this.transform.position; } }
     public Quaternion ShootRotation     { get { return (MuzzleJoint != null) ? MuzzleJoint.rotation : this.transform.rotation; } }
     public float OverheatingMeterRatio  { get { return Mathf.Clamp01(OverheatingCounter / HeatingCapacity); } }
+
+    private Transform RecoilJoint { get { return ElbowJoint ?? this.transform; } }
     #endregion
 
     #region Private
@@ -130,9 +134,10 @@ public class Gun : MonoBehaviour
     #region Recoil Helpers
     void ApplyRecoil()
     {
-        if (this.transform.parent == null) { return; }
+        if (!UseRecoil) { return; }
+        if (RecoilJoint == null || HeadJoint == null) { return; }
 
-        Vector3 UpDir = this.transform.parent.up;
+        Vector3 UpDir = HeadJoint.up;
         Vector3 RecoilVelocity = UpDir * RecoilForce * Time.deltaTime;
 
         RecoilDirection += RecoilVelocity;
@@ -140,12 +145,13 @@ public class Gun : MonoBehaviour
 
     void RecoverFromRecoil()
     {
-        if (this.transform.parent == null) { return; }
+        if (!UseRecoil) { return; }
+        if (RecoilJoint == null || HeadJoint == null) { return; }
 
-        RecoilDirection = Vector3.RotateTowards(RecoilDirection, this.transform.parent.forward, RecoilRecoveryRate * Time.deltaTime, RecoilRecoveryRate * Time.deltaTime);
-        Quaternion LookRotation = Quaternion.LookRotation(RecoilDirection, this.transform.parent.up);
+        RecoilDirection = Vector3.RotateTowards(RecoilDirection, HeadJoint.forward, RecoilRecoveryRate * Time.deltaTime, RecoilRecoveryRate * Time.deltaTime);
+        Quaternion LookRotation = Quaternion.LookRotation(RecoilDirection, HeadJoint.up);
 
-        this.transform.rotation = LookRotation;
+        RecoilJoint.rotation = LookRotation;
     }
     #endregion
 
