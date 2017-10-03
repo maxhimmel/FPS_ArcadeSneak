@@ -6,8 +6,8 @@ public class Gun : MonoBehaviour
 {
     #region Serializable
     [Header("Attachments")]
+    [SerializeField] private Transform ElbowJoint;
     [SerializeField] private Transform MuzzleJoint;
-    [SerializeField] private ParticleSystem MuzzleFlashParticles;
     [Header("Bullet Data")]
     [SerializeField] private Bullet BulletPrefab;
     [SerializeField] private float BulletLifetimeSeconds = 5;
@@ -15,9 +15,14 @@ public class Gun : MonoBehaviour
     [SerializeField] private float Range = 50;
     [SerializeField] private float BulletForce = 20;
     [SerializeField] private float RateOfFirePerSec = 0.175f;
+    [SerializeField] private float RecoilForce = 0.15f;
+    [SerializeField] private float RecoilRecoveryRate = 1;
     [SerializeField] private float HeatingCapacity = 30;
     [SerializeField] private float HeatPerShot = 1;
     [SerializeField] private float HeatingCooldownRatePerSec = 0.15f;
+    [Header("Fun")]
+    [SerializeField] private ParticleSystem MuzzleFlashParticles;
+    [SerializeField] private Vector2 OverHeatingOutlineBounds = new Vector2(0, 0.05f);
     #endregion
 
     #region Properties
@@ -31,13 +36,25 @@ public class Gun : MonoBehaviour
     private float RateOfFireCounter = 0;
     private bool Overheating = false;
     private float OverheatingCounter = 0;
+    private Vector3 RecoilDirection = Vector3.zero;
     #endregion
 
     //------------------------------------------------------------------------------------
 
     #region Mono
+    private void Awake()
+    {
+        Renderer MyRenderer = GetComponentInChildren<Renderer>();
+        if (MyRenderer != null)
+        {
+            Material OutlineMat = OutlineShaderUtility.CreateOutlineMaterial();
+            if (OutlineMat != null) { MyRenderer.material = OutlineMat; }
+        }
+    }
+
     private void Update()
     {
+        RecoverFromRecoil();
         ApplyGunOverheatingEffect();
     }
     #endregion
@@ -46,18 +63,19 @@ public class Gun : MonoBehaviour
     {
         if (!ReadyToShoot()) { return; }
 
+        // Create bullet ...
         Bullet BulletInstance = InstantiateBullet(BulletPrefab);
-        if (BulletInstance != null)
-        {
-            Vector3 BulletVelocity = BulletVelocityOffset + GetShootingDirection() * BulletForce;
-            BulletInstance.Shoot(BulletVelocity);
-
-            PlayMuzzleFlash();
-        }
+        if (BulletInstance == null) { return; }
         
-        // Rate of fire ...
+        // Shoot bullet ...
+        Vector3 BulletVelocity = BulletVelocityOffset + GetShootingDirection() * BulletForce;
+        BulletInstance.Shoot(BulletVelocity);
+
+        PlayMuzzleFlash();
+        ApplyRecoil();
+        
+        // Update counters ...
         RateOfFireCounter = RateOfFirePerSec;
-        // Overheating ...
         IncrementOverheating();
     }
 
@@ -106,6 +124,28 @@ public class Gun : MonoBehaviour
             Overheating = true;
             OverheatingCounter = HeatingCapacity;
         }
+    }
+    #endregion
+
+    #region Recoil Helpers
+    void ApplyRecoil()
+    {
+        if (this.transform.parent == null) { return; }
+
+        Vector3 UpDir = this.transform.parent.up;
+        Vector3 RecoilVelocity = UpDir * RecoilForce * Time.deltaTime;
+
+        RecoilDirection += RecoilVelocity;
+    }
+
+    void RecoverFromRecoil()
+    {
+        if (this.transform.parent == null) { return; }
+
+        RecoilDirection = Vector3.RotateTowards(RecoilDirection, this.transform.parent.forward, RecoilRecoveryRate * Time.deltaTime, RecoilRecoveryRate * Time.deltaTime);
+        Quaternion LookRotation = Quaternion.LookRotation(RecoilDirection, this.transform.parent.up);
+
+        this.transform.rotation = LookRotation;
     }
     #endregion
 
@@ -164,7 +204,7 @@ public class Gun : MonoBehaviour
     #region Fun
     void PlayMuzzleFlash()
     {
-        if (MuzzleFlashParticles == null) { return; }
+        if (MuzzleFlashParticles == null || !MuzzleFlashParticles.gameObject.activeInHierarchy) { return; }
 
         MuzzleFlashParticles.Play();
     }
@@ -172,13 +212,23 @@ public class Gun : MonoBehaviour
     void ApplyGunOverheatingEffect()
     {
         Renderer MyRenderer = GetComponentInChildren<Renderer>();
-        if (MyRenderer == null) { return; }
-        
-        if (MyRenderer.material != null)
-        {
-            Color OverheatingColor = Color.Lerp(Color.white, Color.red, OverheatingMeterRatio);
-            MyRenderer.material.color = OverheatingColor;
-        }
+        if (MyRenderer == null || MyRenderer.material == null) { return; }
+
+        // Whole material ...
+        if (Overheating) { MyRenderer.material.color = GetOverheatingGradient(Color.white, Color.red); }
+
+        // Outline ...
+        OutlineShaderUtility.SetOutlineThickness(MyRenderer, GetOverheatingOutlineThickness());
+        OutlineShaderUtility.SetOutlineColor(MyRenderer, GetOverheatingGradient(Color.yellow, Color.red));
+    }
+
+    Color GetOverheatingGradient(Color To, Color From)
+    {
+        return Color.Lerp(To, From, OverheatingMeterRatio);
+    }
+    float GetOverheatingOutlineThickness()
+    {
+        return Mathf.Lerp(OverHeatingOutlineBounds.x, OverHeatingOutlineBounds.y, OverheatingMeterRatio);
     }
     #endregion
 }
